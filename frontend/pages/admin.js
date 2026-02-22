@@ -6,7 +6,7 @@ import api from '@/services/api';
 import { FiUsers, FiUserCheck, FiUserX, FiActivity, FiCalendar } from 'react-icons/fi';
 
 export default function AdminDashboard() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, socket } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState(null);
   const [recentLogs, setRecentLogs] = useState([]);
@@ -23,6 +23,30 @@ export default function AdminDashboard() {
       fetchData();
     }
   }, [user]);
+
+  // Realtime updates
+  useEffect(() => {
+    if (!socket) {
+      return;
+    }
+
+    const onEntry = (payload) => {
+      setRecentLogs((prev) => [payload.entryLog, ...(prev || []).slice(0, 9)]);
+      fetchData();
+    };
+
+    const onExit = () => {
+      fetchData();
+    };
+
+    socket.on('entry', onEntry);
+    socket.on('exit', onExit);
+
+    return () => {
+      socket.off('entry', onEntry);
+      socket.off('exit', onExit);
+    };
+  }, [socket]);
 
   const fetchData = async () => {
     try {
@@ -142,4 +166,3 @@ const styles = {
     color: '#64748b',
   },
 };
-

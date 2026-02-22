@@ -42,6 +42,20 @@ router.post('/entry', protect, async (req, res) => {
       status: 'inside',
       approvedBy: req.user._id
     });
+    // Emit realtime event to targeted rooms (user who approved, visitor dept) and global
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        // Send to user who approved the entry
+        if (entryLog.approvedBy) io.to(`user:${entryLog.approvedBy}`).emit('entry', { visitor, entryLog });
+        // Send to department associated with the visitor (if set)
+        if (visitor.department) io.to(`dept:${visitor.department}`).emit('entry', { visitor, entryLog });
+        // Also notify global room for backward compatibility
+        io.to('global').emit('entry', { visitor, entryLog });
+      }
+    } catch (e) {
+      console.error('Socket emit error (entry):', e);
+    }
     res.status(201).json({
       message: 'Entry recorded successfully',
       visitor,
@@ -80,6 +94,17 @@ router.post('/exit', protect, async (req, res) => {
     entryLog.exitPhoto = photo;
     entryLog.status = 'exited';
     await entryLog.save();
+    // Emit realtime event to targeted rooms (user who approved, visitor dept) and global
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        if (entryLog.approvedBy) io.to(`user:${entryLog.approvedBy}`).emit('exit', { visitor, entryLog });
+        if (visitor.department) io.to(`dept:${visitor.department}`).emit('exit', { visitor, entryLog });
+        io.to('global').emit('exit', { visitor, entryLog });
+      }
+    } catch (e) {
+      console.error('Socket emit error (exit):', e);
+    }
     res.json({
       message: 'Exit recorded successfully',
       visitor,

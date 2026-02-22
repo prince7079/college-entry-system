@@ -196,4 +196,55 @@ Or use the login page - the first user can register through the API.
 4. **Scan Exit**: Use `/scan` and switch to Exit mode
 5. **View Stats**: Check the dashboard at `/admin` for statistics
 
+## Deployment
+
+Quick options to deploy this application in production:
+
+- Using Docker Compose (recommended for simple deployments):
+
+```bash
+# Copy example env and edit values
+cp .env.example .env
+
+# Build and run
+docker-compose up --build -d
+```
+
+This brings up `mongo`, `backend` (port 5001) and `frontend` (port 3000). Edit `.env` to set `JWT_SECRET` and `NEXT_PUBLIC_API_URL` for production.
+
+- Building images separately:
+
+```bash
+docker build -t college-entry-backend -f backend/Dockerfile ./backend
+docker build -t college-entry-frontend -f frontend/Dockerfile ./frontend
+```
+
+- Deploying to Heroku / similar PaaS: use the `Procfile` (runs backend). You will need to host the frontend separately (Vercel, Netlify) or serve built frontend from a CDN.
+
+CI / CD
+
+This repository includes GitHub Actions workflows for automatic deployments:
+
+- Frontend: `.github/workflows/frontend-deploy.yml` — builds the Next.js app and deploys to Vercel using the `amondnet/vercel-action`. You must add the following repository secrets:
+  - `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
+
+- Backend: `.github/workflows/backend-deploy.yml` — builds a Docker image for the backend and pushes it to Docker Hub. Add these repository secrets:
+  - `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`.
+
+After pushing to `main`, the workflow will run and deploy according to the configured provider. For Render or Railway, prefer connecting the repository directly in the provider UI and set environment variables there.
+
+Socket authentication
+
+Socket.IO connections now require a valid JWT. The frontend sends the token when initializing the socket. Make sure your production `JWT_SECRET` is set and clients obtain tokens via login.
+
+
+Security notes:
+
+- Do not commit real secrets. Use managed secret stores or CI/CD environment variables.
+- Use a strong `JWT_SECRET` and rotate it when possible.
+- Make sure MongoDB is not exposed publicly; use a managed DB or network restrictions.
+
+For detailed managed deployment steps, see `DEPLOY.md`.
+
+
 
