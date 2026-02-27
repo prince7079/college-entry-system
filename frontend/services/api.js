@@ -213,8 +213,8 @@ export const del = async (endpoint) => {
 // ============================================
 
 /**
- * Get health status
- * @returns {Promise<object>} Health data
+ * Get health status {Promise<object>}
+ * @returns Health data
  */
 export const getHealth = () => get('/health');
 
@@ -223,6 +223,56 @@ export const getHealth = () => get('/health');
  * @returns {Promise<object>} List of users
  */
 export const getUsers = () => get('/auth/users');
+
+// ============================================
+// Face Verification Methods
+// ============================================
+
+/**
+ * Verify visitor by face recognition
+ * @param {Array} faceDescriptor - Face descriptor from face-api.js
+ * @returns {Promise<object>} Verification result
+ */
+export const verifyFace = async (faceDescriptor) => {
+  return await fetchApi('/scan/verify/face', {
+    method: 'POST',
+    body: JSON.stringify({ faceDescriptor }),
+  });
+};
+
+// ============================================
+// Thumbprint Verification Methods
+// ============================================
+
+/**
+ * Verify visitor by thumbprint
+ * @param {Array} thumbprintTemplate - Fingerprint template
+ * @param {string} thumbprint - Fingerprint base64 image (optional)
+ * @returns {Promise<object>} Verification result
+ */
+export const verifyThumbprint = async (thumbprintTemplate, thumbprint) => {
+  return await fetchApi('/scan/verify/thumbprint', {
+    method: 'POST',
+    body: JSON.stringify({ thumbprintTemplate, thumbprint }),
+  });
+};
+
+// ============================================
+// Enhanced Verify Methods
+// ============================================
+
+/**
+ * Verify visitor with multiple methods
+ * @param {object} options - Verification options
+ * @returns {Promise<object>} Verification result
+ */
+export const verifyVisitor = async (options) => {
+  const { qrCode, faceDescriptor, thumbprintTemplate, thumbprint, method } = options;
+  return await fetchApi('/scan/verify', {
+    method: 'POST',
+    body: JSON.stringify({ qrCode, faceDescriptor, thumbprintTemplate, thumbprint, method }),
+  });
+};
 
 // ============================================
 // Export default API object for convenience
@@ -239,6 +289,9 @@ export default {
   delete: del,
   getHealth,
   getUsers,
+  verifyFace,
+  verifyThumbprint,
+  verifyVisitor,
   API_BASE_URL,
 };
 

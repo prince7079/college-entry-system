@@ -1,54 +1,61 @@
-# TODO: API Service Implementation Plan
+# TODO: Face Verification and Thumbprint System Implementation
 
 ## Task Summary
-Connect Next.js frontend to Express.js backend with proper API service, CORS handling, and authentication.
+Add face verification and thumbprint (fingerprint) system to the hybrid entry system for enhanced visitor verification.
 
 ## Steps to Complete:
 
-### Step 1: Create API Service File (services/api.js)
-- [x] Create services directory in frontend
-- [x] Create api.js with:
-  - Base URL configuration using NEXT_PUBLIC_API_URL
-  - Modern fetch with async/await
-  - Proper error handling
-  - Authentication helpers
-  - API endpoint methods
+### Step 1: Update Visitor Model
+- [x] Add thumbprint field to Visitor model in backend
+- [x] Add thumbprint template storage
 
-### Step 2: Create Environment Variables File
-- [x] Create .env.local.example for frontend with NEXT_PUBLIC_API_URL
+### Step 2: Create Thumbprint Component
+- [x] Create ThumbprintCapture.js component for fingerprint capture
+- [x] Use fingerprint.js library for capture and template generation
 
-### Step 3: Update AuthContext to Use New API Service
-- [x] Refactor AuthContext to use the new api.js service
-- [x] Remove axios dependency or keep minimal
+### Step 3: Update Backend Scan Routes
+- [x] Add face verification endpoint with proper matching
+- [x] Add thumbprint verification endpoint
+- [x] Implement Euclidean distance for face matching
 
-### Step 4: Update Login Page with API Service
-- [x] Update pages/login.js to use the new login function from api.js
-- [x] Login already uses AuthContext which now uses API service
+### Step 4: Update API Service
+- [x] Add face verification API method
+- [x] Add thumbprint verification API method
 
-### Step 5: Create Example Usage in pages/index.js
-- [x] Show example of fetching data from backend
+### Step 5: Update Scan Page
+- [x] Add face verification mode
+- [x] Add thumbprint verification mode
+- [x] Integrate FaceRecognition component
+- [x] Integrate ThumbprintCapture component
 
-### Step 6: Update Backend CORS (if needed)
-- [x] Backend CORS is already properly configured in server.js
+### Step 6: Update Visitor Registration Page
+- [x] Add thumbprint capture option
+- [x] Store thumbprint template with visitor
 
-## COMPLETED: All tasks finished!
+### Step 7: Update Visitors List Page
+- [x] Show biometric status icons
+
+## Implementation Details:
+- Face matching using Euclidean distance threshold of 0.6
+- Fingerprint using simulated template generation
+- Hybrid verification: QR, Face, Thumbprint options
 
 ## Files Created:
-1. frontend/services/api.js - Main API service file
-2. frontend/.env.local.example - Environment variables template
+1. frontend/components/ThumbprintCapture.js - Fingerprint capture component
 
 ## Files Modified:
-1. frontend/context/AuthContext.js - Now uses new API service
-2. frontend/pages/index.js - Added example API fetch
-3. frontend/pages/admin.js - Updated to use API service
-4. frontend/pages/visitors.js - Updated to use API service
-5. frontend/pages/scan.js - Updated to use API service
-6. frontend/pages/visitor.js - Updated to use API service
+1. backend/models/Visitor.js - Added thumbprint and thumbprintTemplate fields
+2. backend/routes/scan.js - Added face/thumbprint verification endpoints
+3. backend/routes/visitor.js - Added thumbprint handling in registration
+4. frontend/services/api.js - Added verifyFace, verifyThumbprint, verifyVisitor methods
+5. frontend/pages/scan.js - Added QR, Face, Thumbprint verification modes
+6. frontend/pages/visitor.js - Added biometric capture section
+7. frontend/pages/visitors.js - Added biometric status column
 
-## Notes:
-- Backend runs on port 5001
-- API base URL: http://localhost:5001/api
-- Use NEXT_PUBLIC_API_URL environment variable
-- Login endpoint: POST /api/auth/login
-- All pages now use the centralized API service with automatic token handling
+## How to Use:
+1. Register a new visitor with photo and/or thumbprint
+2. Go to the Scan page
+3. Choose verification method: QR Code, Face, or Thumbprint
+4. For Face/Thumbprint, capture the biometric data
+5. Record entry/exit based on the verification
 
