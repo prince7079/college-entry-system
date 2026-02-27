@@ -49,6 +49,14 @@ const visitorSchema = new mongoose.Schema({
     type: Array,
     default: []
   },
+  thumbprint: {
+    type: String,
+    default: ''
+  },
+  thumbprintTemplate: {
+    type: Array,
+    default: []
+  },
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected', 'checked-in', 'checked-out'],
