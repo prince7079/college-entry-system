@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import api from '@/services/api';
-import FaceRecognition from '@/components/FaceRecognition';
-import ThumbprintCapture from '@/components/ThumbprintCapture';
-import { FiUser, FiMail, FiPhone, FiBriefcase, FiUserCheck, FiCamera, FiFingerprint, FiCheck } from 'react-icons/fi';
-import * as faceapi from 'face-api.js';
+import dynamic from 'next/dynamic';
+import { FiUser, FiMail, FiPhone, FiBriefcase, FiUserCheck, FiCamera, FiCheck } from 'react-icons/fi';
+import { MdFingerprint } from 'react-icons/md';
+
+// Dynamic imports to avoid SSR issues with browser APIs
+const FaceRecognition = dynamic(() => import('@/components/FaceRecognition'), { ssr: false });
+const ThumbprintCapture = dynamic(() => import('@/components/ThumbprintCapture'), { ssr: false });
 
 export default function VisitorForm() {
   const router = useRouter();
@@ -153,7 +156,7 @@ export default function VisitorForm() {
               {/* Thumbprint */}
               <div style={styles.biometricCard}>
                 <div style={styles.biometricHeader}>
-                  <FiFingerprint size={24} color="#10b981" />
+                  <MdFingerprint size={24} color="#10b981" />
                   <span>Thumbprint</span>
                 </div>
                 {thumbprint ? (
@@ -178,7 +181,7 @@ export default function VisitorForm() {
                       className="btn btn-outline"
                       style={styles.biometricBtn}
                     >
-                      <FiFingerprint style={{ marginRight: '8px' }} /> Capture Thumbprint
+                      <MdFingerprint style={{ marginRight: '8px' }} /> Capture Thumbprint
                     </button>
                   </div>
                 )}

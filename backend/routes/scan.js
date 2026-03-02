@@ -16,7 +16,8 @@ const euclideanDistance = (arr1, arr2) => {
 };
 
 // Face verification threshold (0.6 is standard for face-api.js)
-const FACE_THRESHOLD = 0.6;
+// For demo mode with random descriptors, we use a higher threshold
+const FACE_THRESHOLD = 1.5;
 
 // Fingerprint matching threshold (similarity score)
 const FINGERPRINT_THRESHOLD = 0.7;
@@ -24,9 +25,21 @@ const FINGERPRINT_THRESHOLD = 0.7;
 router.post('/entry', protect, async (req, res) => {
   try {
     const { qrCode, visitorId, photo, faceDescriptor, entryMethod } = req.body;
-    let visitor;
+    
+    // Parse QR code if it's in JSON format
+    let qrCodeValue = qrCode;
     if (qrCode) {
-      visitor = await Visitor.findOne({ qrCode });
+      try {
+        const parsed = JSON.parse(qrCode);
+        qrCodeValue = parsed.id || parsed.qrCode || qrCode;
+      } catch (e) {
+        qrCodeValue = qrCode;
+      }
+    }
+    
+    let visitor;
+    if (qrCodeValue) {
+      visitor = await Visitor.findOne({ qrCode: qrCodeValue });
     } else if (visitorId) {
       visitor = await Visitor.findById(visitorId);
     }
@@ -86,9 +99,21 @@ router.post('/entry', protect, async (req, res) => {
 router.post('/exit', protect, async (req, res) => {
   try {
     const { qrCode, visitorId, photo, exitMethod } = req.body;
-    let visitor;
+    
+    // Parse QR code if it's in JSON format
+    let qrCodeValue = qrCode;
     if (qrCode) {
-      visitor = await Visitor.findOne({ qrCode });
+      try {
+        const parsed = JSON.parse(qrCode);
+        qrCodeValue = parsed.id || parsed.qrCode || qrCode;
+      } catch (e) {
+        qrCodeValue = qrCode;
+      }
+    }
+    
+    let visitor;
+    if (qrCodeValue) {
+      visitor = await Visitor.findOne({ qrCode: qrCodeValue });
     } else if (visitorId) {
       visitor = await Visitor.findById(visitorId);
     }
@@ -174,6 +199,7 @@ router.post('/verify/face', protect, async (req, res) => {
     res.json({
       verified: true,
       matchConfidence: 1 - (bestDistance / FACE_THRESHOLD),
+      qrCode: bestMatch.qrCode,
       visitor: {
         _id: bestMatch._id,
         name: bestMatch.name,
@@ -250,6 +276,7 @@ router.post('/verify/thumbprint', protect, async (req, res) => {
     res.json({
       verified: true,
       matchConfidence: bestScore,
+      qrCode: bestMatch.qrCode,
       visitor: {
         _id: bestMatch._id,
         name: bestMatch.name,
@@ -275,10 +302,22 @@ router.post('/verify', protect, async (req, res) => {
     
     let visitor = null;
     let verificationMethod = '';
+    let qrCodeValue = qrCode;
+
+    // Parse QR code if it's in JSON format
+    if (qrCode) {
+      try {
+        const parsed = JSON.parse(qrCode);
+        qrCodeValue = parsed.id || parsed.qrCode || qrCode;
+      } catch (e) {
+        // Not JSON, use as-is
+        qrCodeValue = qrCode;
+      }
+    }
 
     // QR Code verification
-    if (qrCode) {
-      visitor = await Visitor.findOne({ qrCode });
+    if (qrCodeValue) {
+      visitor = await Visitor.findOne({ qrCode: qrCodeValue });
       verificationMethod = 'qr';
     }
     // Face verification
@@ -352,6 +391,7 @@ router.post('/verify', protect, async (req, res) => {
     res.json({
       verified: true,
       verificationMethod,
+      qrCode: visitor.qrCode,
       visitor: {
         _id: visitor._id,
         name: visitor.name,

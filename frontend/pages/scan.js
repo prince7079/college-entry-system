@@ -2,11 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
-import { Html5QrcodeScanner } from 'html5-qrcode';
-import FaceRecognition from '@/components/FaceRecognition';
-import ThumbprintCapture from '@/components/ThumbprintCapture';
-import { FiCamera, FiCheck, FiX, FiUser, FiClock, FiGrid, FiSmile, FiFingerprint } from 'react-icons/fi';
-import * as faceapi from 'face-api.js';
+import dynamic from 'next/dynamic';
+import { FiCamera, FiCheck, FiX, FiUser, FiClock, FiGrid, FiSmile } from 'react-icons/fi';
+import { IoFingerprint } from 'react-icons/io5';
+
+// Dynamic imports for scanner components to avoid SSR issues
+const QRScanner = dynamic(() => import('@/components/QRScanner'), { ssr: false });
+const FaceRecognition = dynamic(() => import('@/components/FaceRecognition'), { ssr: false });
+const ThumbprintCapture = dynamic(() => import('@/components/ThumbprintCapture'), { ssr: false });
 
 export default function Scan() {
   const { user, loading: authLoading } = useAuth();
@@ -26,6 +29,7 @@ export default function Scan() {
   // State for components
   const [showFaceCapture, setShowFaceCapture] = useState(false);
   const [showThumbprintCapture, setShowThumbprintCapture] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
   
   // Refs
   const scannerRef = useRef(null);
@@ -56,44 +60,14 @@ export default function Scan() {
 
   // ==================== QR Code Methods ====================
   const startQRScanning = () => {
-    setScanning(true);
+    setShowQRScanner(true);
     setScanResult(null);
-
-    setTimeout(() => {
-      if (scannerRef.current) {
-        html5QrcodeScannerRef.current = new Html5QrcodeScanner(
-          'qr-reader',
-          {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
-            aspectRatio: 1.0,
-          },
-          false
-        );
-
-        html5QrcodeScannerRef.current.render(
-          (decodedText) => {
-            handleQRScan(decodedText);
-          },
-          (error) => {
-            // Ignore scan errors
-          }
-        );
-      }
-    }, 100);
-  };
-
-  const stopQRScanning = () => {
-    if (html5QrcodeScannerRef.current) {
-      html5QrcodeScannerRef.current.clear().catch(console.error);
-    }
-    setScanning(false);
   };
 
   const handleQRScan = async (qrData) => {
+    setShowQRScanner(false);
     if (processing) return;
     
-    stopQRScanning();
     setProcessing(true);
 
     try {
@@ -123,6 +97,10 @@ export default function Scan() {
     } finally {
       setProcessing(false);
     }
+  };
+
+  const closeQRScanner = () => {
+    setShowQRScanner(false);
   };
 
   // ==================== Face Verification Methods ====================
@@ -311,7 +289,7 @@ export default function Scan() {
           }}
           onClick={() => handleMethodChange('thumbprint')}
         >
-          <FiFingerprint style={{ marginRight: '8px' }} /> Thumbprint
+          <IoFingerprint style={{ marginRight: '8px' }} /> Thumbprint
         </button>
       </div>
 
@@ -333,7 +311,7 @@ export default function Scan() {
 
       <div style={styles.container}>
         {/* QR Code Mode */}
-        {verificationMethod === 'qr' && !scanning && !scanResult && (
+        {verificationMethod === 'qr' && !scanResult && (
           <div style={styles.startSection}>
             <div style={styles.iconBox}>
               <FiCamera size={60} color="#2563eb" />
@@ -344,15 +322,6 @@ export default function Scan() {
             </p>
             <button onClick={startQRScanning} className="btn btn-primary" style={styles.startBtn}>
               <FiCamera style={{ marginRight: '8px' }} /> Start Scanning
-            </button>
-          </div>
-        )}
-
-        {verificationMethod === 'qr' && scanning && (
-          <div style={styles.scannerSection}>
-            <div id="qr-reader" style={styles.qrReader}></div>
-            <button onClick={stopQRScanning} className="btn btn-secondary" style={styles.stopBtn}>
-              Cancel
             </button>
           </div>
         )}
@@ -377,14 +346,14 @@ export default function Scan() {
         {verificationMethod === 'thumbprint' && !scanResult && (
           <div style={styles.startSection}>
             <div style={styles.iconBox}>
-              <FiFingerprint size={60} color="#2563eb" />
+              <IoFingerprint size={60} color="#2563eb" />
             </div>
             <h2 style={styles.sectionTitle}>Thumbprint Verification</h2>
             <p style={styles.sectionText}>
               Use fingerprint scanning to verify visitor identity
             </p>
             <button onClick={startThumbprintVerification} className="btn btn-primary" style={styles.startBtn}>
-              <FiFingerprint style={{ marginRight: '8px' }} /> Start Thumbprint Scan
+              <IoFingerprint style={{ marginRight: '8px' }} /> Start Thumbprint Scan
             </button>
           </div>
         )}
@@ -506,6 +475,14 @@ export default function Scan() {
         <ThumbprintCapture 
           onCapture={handleThumbprintCapture} 
           onClose={() => setShowThumbprintCapture(false)} 
+        />
+      )}
+
+      {/* QR Scanner Modal */}
+      {showQRScanner && (
+        <QRScanner 
+          onScan={handleQRScan} 
+          onClose={closeQRScanner} 
         />
       )}
     </div>

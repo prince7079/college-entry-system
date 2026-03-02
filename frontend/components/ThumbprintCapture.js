@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { FiFingerprint, FiCheck, FiX, FiRefreshCw } from 'react-icons/fi';
+import { MdFingerprint } from 'react-icons/md';
+import { FiCheck, FiX, FiRefreshCw } from 'react-icons/fi';
 
 export default function ThumbprintCapture({ onCapture, onClose }) {
   const [status, setStatus] = useState('initial'); // initial, scanning, captured, error
   const [message, setMessage] = useState('');
+  const [captureId] = useState(() => Math.random().toString(36).substring(7)); // Unique ID for this capture session
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -19,15 +21,13 @@ export default function ThumbprintCapture({ onCapture, onClose }) {
     setMessage('Place your thumb on the fingerprint scanner...');
     
     // Simulate fingerprint scanning
-    // In production, this would use a fingerprint scanner SDK or WebAuthn
-    // For demo purposes, we'll simulate the scanning process
+    // Using deterministic data based on captureId for consistent matching
     const scanDuration = 2000 + Math.random() * 1000; // 2-3 seconds
     
     setTimeout(() => {
-      // Simulate successful capture
-      // Generate a simulated fingerprint template
-      const template = generateSimulatedTemplate();
-      const thumbprintImage = generateSimulatedThumbprint();
+      // Use captureId to generate consistent template for this session
+      const template = generateConsistentTemplate(captureId);
+      const thumbprintImage = generateConsistentThumbprint(captureId);
       
       setStatus('captured');
       setMessage('Thumbprint captured successfully!');
@@ -45,39 +45,72 @@ export default function ThumbprintCapture({ onCapture, onClose }) {
     // Cleanup if needed
   };
 
-  const generateSimulatedTemplate = () => {
-    // Generate a simulated fingerprint template (array of numbers)
-    // In production, this would come from the actual fingerprint scanner
+  // Generate consistent template based on session ID
+  const generateConsistentTemplate = (seed) => {
+    // Simple seeded random generator
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+      hash |= 0;
+    }
+    
+    // Generate deterministic values from hash
     const template = [];
     for (let i = 0; i < 64; i++) {
-      template.push(Math.random());
+      // Use hash to generate consistent values between 0.3 and 0.9
+      const value = 0.3 + (Math.abs((hash * (i + 1)) % 100) / 100) * 0.6;
+      template.push(value);
     }
     return template;
   };
 
-  const generateSimulatedThumbprint = () => {
-    // Generate a simple visual representation of a fingerprint
-    // In production, this would be the actual scanned image from the scanner
+  // Generate consistent thumbprint image based on session ID
+  const generateConsistentThumbprint = (seed) => {
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+      hash |= 0;
+    }
+    
     const canvas = document.createElement('canvas');
     canvas.width = 200;
     canvas.height = 200;
     const ctx = canvas.getContext('2d');
     
-    // Draw a simple fingerprint pattern
+    // Draw background
     ctx.fillStyle = '#1e293b';
     ctx.fillRect(0, 0, 200, 200);
     
+    // Draw fingerprint pattern using hash
     ctx.strokeStyle = '#10b981';
     ctx.lineWidth = 2;
     
-    // Draw concentric arcs to simulate fingerprint
-    for (let i = 0; i < 10; i++) {
-      ctx.beginPath();
-      ctx.arc(100, 100, 20 + i * 8, Math.PI * 0.8, Math.PI * 2.2);
-      ctx.stroke();
+    const patternType = hash % 3;
+    
+    if (patternType === 0) {
+      // Concentric arcs
+      for (let i = 0; i < 10; i++) {
+        ctx.beginPath();
+        ctx.arc(100, 100, 20 + i * 8, Math.PI * 0.8, Math.PI * 2.2);
+        ctx.stroke();
+      }
+    } else if (patternType === 1) {
+      // Whorl pattern
+      for (let i = 0; i < 15; i++) {
+        ctx.beginPath();
+        ctx.arc(100, 100 + i * 5, 30 + i * 3, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    } else {
+      // U-shape pattern
+      for (let i = 0; i < 8; i++) {
+        ctx.beginPath();
+        ctx.arc(100 - i * 10, 100, 30 + i * 5, Math.PI * 0.5, Math.PI * 1.5);
+        ctx.stroke();
+      }
     }
     
-    // Add some lines
+    // Add some lines based on hash
     for (let i = 0; i < 8; i++) {
       ctx.beginPath();
       ctx.moveTo(20 + i * 20, 30);
@@ -106,7 +139,7 @@ export default function ThumbprintCapture({ onCapture, onClose }) {
             {status === 'scanning' && (
               <div style={styles.scanningAnimation}>
                 <div style={styles.scannerCircle}></div>
-                <FiFingerprint size={80} color="#10b981" />
+                <MdFingerprint size={80} color="#10b981" />
               </div>
             )}
             
@@ -128,7 +161,7 @@ export default function ThumbprintCapture({ onCapture, onClose }) {
             
             {status === 'initial' && (
               <div style={styles.initialState}>
-                <FiFingerprint size={80} color="#64748b" />
+                <MdFingerprint size={80} color="#64748b" />
               </div>
             )}
           </div>

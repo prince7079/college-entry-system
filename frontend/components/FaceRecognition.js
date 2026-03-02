@@ -6,34 +6,45 @@ export default function FaceRecognition({ onCapture, onClose }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [status, setStatus] = useState('initializing');
+  const [modelsLoaded, setModelsLoaded] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const streamRef = useRef(null);
 
   useEffect(() => {
-    initializeCamera();
+    loadModels();
     return () => {
       stopCamera();
     };
   }, []);
 
-  const initializeCamera = async () => {
+  const loadModels = async () => {
     try {
-      // Load face-api models (in production, these would be served from public/models)
-      // For now, we'll simulate face detection
       setLoading(true);
       setStatus('loading-models');
+      
+      const MODEL_URL = '/models';
+      
+      // Load all required models
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+      ]);
+      
+      setModelsLoaded(true);
+      setLoading(false);
+      // Start camera after models load
+      initializeCamera();
+    } catch (err) {
+      console.error('Error loading models:', err);
+      setError('Failed to load face detection models. Please refresh and try again.');
+      setLoading(false);
+    }
+  };
 
-      // Try to load models, but handle failure gracefully
-      try {
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
-          faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
-          faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
-        ]);
-      } catch (modelError) {
-        console.log('Face models not available, using basic camera');
-      }
-
+  const initializeCamera = async () => {
+    try {
       setStatus('starting-camera');
       
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -44,11 +55,12 @@ export default function FaceRecognition({ onCapture, onClose }) {
         }
       });
 
+      streamRef.current = stream;
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
         setStatus('ready');
-        setLoading(false);
       }
     } catch (err) {
       console.error('Camera error:', err);
@@ -58,49 +70,57 @@ export default function FaceRecognition({ onCapture, onClose }) {
   };
 
   const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
     if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = videoRef.current.srcObject.getTracks();
-      tracks.forEach(track => track.stop());
+      videoRef.current.srcObject.getTracks().forEach(track => track.stop());
     }
   };
 
   const capturePhoto = async () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || !modelsLoaded) return;
 
-    const video = videoRef.current;
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0);
-    
-    const photoData = canvas.toDataURL('image/jpeg', 0.8);
+    setStatus('detecting');
 
-    let faceDescriptor = [];
-    
-    // Try to detect face and get descriptor
     try {
-      setStatus('detecting');
-      const detections = await faceapi.detectSingleFace(
-        video, 
-        new faceapi.TinyFaceDetectorOptions()
-      ).withFaceLandmarks().withFaceDescriptor();
+      // Detect face with landmarks and descriptor
+      const detections = await faceapi
+        .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks()
+        .withFaceDescriptor();
 
-      if (detections) {
-        faceDescriptor = Array.from(detections.descriptor);
+      if (!detections) {
+        setStatus('ready');
+        alert('No face detected! Please position your face within the frame.');
+        return;
       }
-    } catch (detectionError) {
-      console.log('Face detection not available');
-      // Generate a placeholder descriptor
-      faceDescriptor = Array(128).fill(0).map(() => Math.random());
-    }
 
-    stopCamera();
-    onCapture({
-      photo: photoData,
-      descriptor: faceDescriptor
-    });
+      // Capture photo from video
+      const video = videoRef.current;
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0);
+      
+      const photoData = canvas.toDataURL('image/jpeg', 0.8);
+
+      // Get the face descriptor (128 floating point numbers)
+      const faceDescriptor = Array.from(detections.descriptor);
+
+      stopCamera();
+      onCapture({
+        photo: photoData,
+        descriptor: faceDescriptor
+      });
+    } catch (err) {
+      console.error('Face detection error:', err);
+      setStatus('ready');
+      alert('Face detection failed. Please try again.');
+    }
   };
 
   return (
@@ -140,13 +160,17 @@ export default function FaceRecognition({ onCapture, onClose }) {
         </div>
 
         <div style={styles.instructions}>
-          <p>Position your face within the circle</p>
+          {status === 'detecting' ? (
+            <p style={{ color: '#2563eb' }}>Detecting face...</p>
+          ) : (
+            <p>Position your face within the circle</p>
+          )}
         </div>
 
         <div style={styles.actions}>
           <button 
             onClick={capturePhoto} 
-            disabled={loading || !!error}
+            disabled={loading || !!error || status !== 'ready'}
             className="btn btn-primary"
             style={styles.captureBtn}
           >
