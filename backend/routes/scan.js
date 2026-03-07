@@ -5,12 +5,41 @@ const Visitor = require('../models/Visitor');
 const EntryLog = require('../models/EntryLog');
 const { protect } = require('../middleware/auth');
 
+// Euclidean distance for face descriptor matching
+const euclideanDistance = (arr1, arr2) => {
+  if (!arr1 || !arr2 || arr1.length !== arr2.length) return Infinity;
+  let sum = 0;
+  for (let i = 0; i < arr1.length; i++) {
+    sum += Math.pow(arr1[i] - arr2[i], 2);
+  }
+  return Math.sqrt(sum);
+};
+
+// Face verification threshold (0.6 is standard for face-api.js)
+// For demo mode with random descriptors, we use a higher threshold
+const FACE_THRESHOLD = 1.5;
+
+// Fingerprint matching threshold (similarity score)
+const FINGERPRINT_THRESHOLD = 0.7;
+
 router.post('/entry', protect, async (req, res) => {
   try {
     const { qrCode, visitorId, photo, faceDescriptor, entryMethod } = req.body;
-    let visitor;
+    
+    // Parse QR code if it's in JSON format
+    let qrCodeValue = qrCode;
     if (qrCode) {
-      visitor = await Visitor.findOne({ qrCode });
+      try {
+        const parsed = JSON.parse(qrCode);
+        qrCodeValue = parsed.id || parsed.qrCode || qrCode;
+      } catch (e) {
+        qrCodeValue = qrCode;
+      }
+    }
+    
+    let visitor;
+    if (qrCodeValue) {
+      visitor = await Visitor.findOne({ qrCode: qrCodeValue });
     } else if (visitorId) {
       visitor = await Visitor.findById(visitorId);
     }
@@ -70,9 +99,21 @@ router.post('/entry', protect, async (req, res) => {
 router.post('/exit', protect, async (req, res) => {
   try {
     const { qrCode, visitorId, photo, exitMethod } = req.body;
-    let visitor;
+    
+    // Parse QR code if it's in JSON format
+    let qrCodeValue = qrCode;
     if (qrCode) {
-      visitor = await Visitor.findOne({ qrCode });
+      try {
+        const parsed = JSON.parse(qrCode);
+        qrCodeValue = parsed.id || parsed.qrCode || qrCode;
+      } catch (e) {
+        qrCodeValue = qrCode;
+      }
+    }
+    
+    let visitor;
+    if (qrCodeValue) {
+      visitor = await Visitor.findOne({ qrCode: qrCodeValue });
     } else if (visitorId) {
       visitor = await Visitor.findById(visitorId);
     }
@@ -116,32 +157,250 @@ router.post('/exit', protect, async (req, res) => {
   }
 });
 
+// Face verification endpoint with proper matching
+router.post('/verify/face', protect, async (req, res) => {
+  try {
+    const { faceDescriptor } = req.body;
+    
+    if (!faceDescriptor || faceDescriptor.length === 0) {
+      return res.status(400).json({ verified: false, message: 'No face descriptor provided' });
+    }
+
+    // Find visitors with face descriptors
+    const visitors = await Visitor.find({
+      faceDescriptor: { $exists: true, $ne: [] }
+    });
+
+    if (visitors.length === 0) {
+      return res.status(404).json({ verified: false, message: 'No registered visitors with face data' });
+    }
+
+    // Find best match
+    let bestMatch = null;
+    let bestDistance = Infinity;
+
+    for (const visitor of visitors) {
+      const distance = euclideanDistance(faceDescriptor, visitor.faceDescriptor);
+      if (distance < bestDistance && distance <= FACE_THRESHOLD) {
+        bestDistance = distance;
+        bestMatch = visitor;
+      }
+    }
+
+    if (!bestMatch) {
+      return res.status(404).json({ verified: false, message: 'Face not recognized' });
+    }
+
+    const existingEntry = await EntryLog.findOne({
+      visitorId: bestMatch._id,
+      status: 'inside'
+    });
+
+    res.json({
+      verified: true,
+      matchConfidence: 1 - (bestDistance / FACE_THRESHOLD),
+      qrCode: bestMatch.qrCode,
+      visitor: {
+        _id: bestMatch._id,
+        name: bestMatch.name,
+        phone: bestMatch.phone,
+        email: bestMatch.email,
+        purpose: bestMatch.purpose,
+        personToMeet: bestMatch.personToMeet,
+        status: bestMatch.status,
+        photo: bestMatch.photo
+      },
+      isInside: !!existingEntry
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Thumbprint verification endpoint
+router.post('/verify/thumbprint', protect, async (req, res) => {
+  try {
+    const { thumbprintTemplate, thumbprint } = req.body;
+    
+    if ((!thumbprintTemplate || thumbprintTemplate.length === 0) && !thumbprint) {
+      return res.status(400).json({ verified: false, message: 'No thumbprint data provided' });
+    }
+
+    // Find visitors with thumbprint templates
+    const visitors = await Visitor.find({
+      $or: [
+        { thumbprintTemplate: { $exists: true, $ne: [] } },
+        { thumbprint: { $exists: true, $ne: '' } }
+      ]
+    });
+
+    if (visitors.length === 0) {
+      return res.status(404).json({ verified: false, message: 'No registered visitors with thumbprint data' });
+    }
+
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const visitor of visitors) {
+      let score = 0;
+      
+      // If client sends template, compare with stored template
+      if (thumbprintTemplate && thumbprintTemplate.length > 0 && visitor.thumbprintTemplate && visitor.thumbprintTemplate.length > 0) {
+        // Simple comparison - count matching elements
+        const matches = thumbprintTemplate.filter((val, idx) => 
+          visitor.thumbprintTemplate[idx] === val
+        ).length;
+        score = matches / Math.max(thumbprintTemplate.length, visitor.thumbprintTemplate.length);
+      } 
+      // If client sends base64 image, compare with stored image (simple comparison)
+      else if (thumbprint && visitor.thumbprint && thumbprint === visitor.thumbprint) {
+        score = 1;
+      }
+
+      if (score > bestScore && score >= FINGERPRINT_THRESHOLD) {
+        bestScore = score;
+        bestMatch = visitor;
+      }
+    }
+
+    if (!bestMatch) {
+      return res.status(404).json({ verified: false, message: 'Thumbprint not recognized' });
+    }
+
+    const existingEntry = await EntryLog.findOne({
+      visitorId: bestMatch._id,
+      status: 'inside'
+    });
+
+    res.json({
+      verified: true,
+      matchConfidence: bestScore,
+      qrCode: bestMatch.qrCode,
+      visitor: {
+        _id: bestMatch._id,
+        name: bestMatch.name,
+        phone: bestMatch.phone,
+        email: bestMatch.email,
+        purpose: bestMatch.purpose,
+        personToMeet: bestMatch.personToMeet,
+        status: bestMatch.status,
+        photo: bestMatch.photo
+      },
+      isInside: !!existingEntry
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Enhanced verify endpoint with multiple methods
 router.post('/verify', protect, async (req, res) => {
   try {
-    const { qrCode, faceDescriptor } = req.body;
-    let visitor;
+    const { qrCode, faceDescriptor, thumbprintTemplate, thumbprint, method } = req.body;
+    
+    let visitor = null;
+    let verificationMethod = '';
+    let qrCodeValue = qrCode;
+
+    // Parse QR code if it's in JSON format
     if (qrCode) {
-      visitor = await Visitor.findOne({ qrCode });
-    } else if (faceDescriptor && faceDescriptor.length > 0) {
-      visitor = await Visitor.findOne({
+      try {
+        const parsed = JSON.parse(qrCode);
+        qrCodeValue = parsed.id || parsed.qrCode || qrCode;
+      } catch (e) {
+        // Not JSON, use as-is
+        qrCodeValue = qrCode;
+      }
+    }
+
+    // QR Code verification
+    if (qrCodeValue) {
+      visitor = await Visitor.findOne({ qrCode: qrCodeValue });
+      verificationMethod = 'qr';
+    }
+    // Face verification
+    else if (method === 'face' || (faceDescriptor && faceDescriptor.length > 0)) {
+      const visitors = await Visitor.find({
         faceDescriptor: { $exists: true, $ne: [] }
       });
+      
+      let bestMatch = null;
+      let bestDistance = Infinity;
+
+      for (const v of visitors) {
+        const distance = euclideanDistance(faceDescriptor, v.faceDescriptor);
+        if (distance < bestDistance && distance <= FACE_THRESHOLD) {
+          bestDistance = distance;
+          bestMatch = v;
+        }
+      }
+      
+      if (bestMatch) {
+        visitor = bestMatch;
+        verificationMethod = 'face';
+      }
     }
+    // Thumbprint verification
+    else if (method === 'thumbprint' || thumbprint || (thumbprintTemplate && thumbprintTemplate.length > 0)) {
+      const visitors = await Visitor.find({
+        $or: [
+          { thumbprintTemplate: { $exists: true, $ne: [] } },
+          { thumbprint: { $exists: true, $ne: '' } }
+        ]
+      });
+
+      let bestMatch = null;
+      let bestScore = 0;
+
+      for (const v of visitors) {
+        let score = 0;
+        
+        if (thumbprintTemplate && thumbprintTemplate.length > 0 && v.thumbprintTemplate && v.thumbprintTemplate.length > 0) {
+          const matches = thumbprintTemplate.filter((val, idx) => 
+            v.thumbprintTemplate[idx] === val
+          ).length;
+          score = matches / Math.max(thumbprintTemplate.length, v.thumbprintTemplate.length);
+        } 
+        else if (thumbprint && v.thumbprint && thumbprint === v.thumbprint) {
+          score = 1;
+        }
+
+        if (score > bestScore && score >= FINGERPRINT_THRESHOLD) {
+          bestScore = score;
+          bestMatch = v;
+        }
+      }
+      
+      if (bestMatch) {
+        visitor = bestMatch;
+        verificationMethod = 'thumbprint';
+      }
+    }
+
     if (!visitor) {
       return res.status(404).json({ verified: false, message: 'Visitor not found' });
     }
+
     const existingEntry = await EntryLog.findOne({
       visitorId: visitor._id,
       status: 'inside'
     });
+
     res.json({
       verified: true,
+      verificationMethod,
+      qrCode: visitor.qrCode,
       visitor: {
         _id: visitor._id,
         name: visitor.name,
+        phone: visitor.phone,
+        email: visitor.email,
         purpose: visitor.purpose,
         personToMeet: visitor.personToMeet,
-        status: visitor.status
+        status: visitor.status,
+        photo: visitor.photo
       },
       isInside: !!existingEntry
     });
