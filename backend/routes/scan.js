@@ -16,8 +16,8 @@ const euclideanDistance = (arr1, arr2) => {
 };
 
 // Face verification threshold (0.6 is standard for face-api.js)
-// For demo mode with random descriptors, we use a higher threshold
-const FACE_THRESHOLD = 1.5;
+// Using 0.6 as standard threshold - lower = more strict
+const FACE_THRESHOLD = 0.6;
 
 // Fingerprint matching threshold (similarity score)
 const FINGERPRINT_THRESHOLD = 0.7;

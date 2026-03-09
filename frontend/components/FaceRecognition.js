@@ -7,14 +7,20 @@ export default function FaceRecognition({ onCapture, onClose }) {
   const [error, setError] = useState('');
   const [status, setStatus] = useState('initializing');
   const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [faceDetected, setFaceDetected] = useState(false);
+  const [detectionStatus, setDetectionStatus] = useState('');
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
+  const detectionIntervalRef = useRef(null);
 
   useEffect(() => {
     loadModels();
     return () => {
       stopCamera();
+      if (detectionIntervalRef.current) {
+        clearInterval(detectionIntervalRef.current);
+      }
     };
   }, []);
 
@@ -32,6 +38,7 @@ export default function FaceRecognition({ onCapture, onClose }) {
         faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
       ]);
       
+      console.log('Models loaded successfully');
       setModelsLoaded(true);
       setLoading(false);
       // Start camera after models load
@@ -61,6 +68,8 @@ export default function FaceRecognition({ onCapture, onClose }) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
         setStatus('ready');
+        // Start face detection loop
+        startFaceDetection();
       }
     } catch (err) {
       console.error('Camera error:', err);
@@ -69,7 +78,38 @@ export default function FaceRecognition({ onCapture, onClose }) {
     }
   };
 
+  const startFaceDetection = () => {
+    if (!videoRef.current || !modelsLoaded) return;
+
+    // Run face detection every 500ms to provide feedback
+    detectionIntervalRef.current = setInterval(async () => {
+      if (!videoRef.current || status !== 'ready') return;
+
+      try {
+        const detections = await faceapi
+          .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
+          .withFaceLandmarks();
+
+        if (detections) {
+          setFaceDetected(true);
+          setDetectionStatus('Face detected! You can capture now.');
+        } else {
+          setFaceDetected(false);
+          setDetectionStatus('No face detected. Please position your face in the circle.');
+        }
+      } catch (err) {
+        console.error('Face detection error:', err);
+        setFaceDetected(false);
+        setDetectionStatus('Detecting face...');
+      }
+    }, 500);
+  };
+
   const stopCamera = () => {
+    if (detectionIntervalRef.current) {
+      clearInterval(detectionIntervalRef.current);
+      detectionIntervalRef.current = null;
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
@@ -80,36 +120,54 @@ export default function FaceRecognition({ onCapture, onClose }) {
   };
 
   const capturePhoto = async () => {
-    if (!videoRef.current || !modelsLoaded) return;
+    if (!videoRef.current) return;
 
-    setStatus('detecting');
+    setStatus('capturing');
+    setDetectionStatus('Processing face...');
 
     try {
       // Detect face with landmarks and descriptor
-      const detections = await faceapi
-        .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
-        .withFaceLandmarks()
-        .withFaceDescriptor();
-
-      if (!detections) {
-        setStatus('ready');
-        alert('No face detected! Please position your face within the frame.');
-        return;
+      let detections = null;
+      if (modelsLoaded) {
+        console.log('Detecting face...');
+        detections = await faceapi
+          .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+        
+        console.log('Detection result:', detections);
       }
 
       // Capture photo from video
       const video = videoRef.current;
       const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
       
       const ctx = canvas.getContext('2d');
       ctx.drawImage(video, 0, 0);
       
       const photoData = canvas.toDataURL('image/jpeg', 0.8);
 
-      // Get the face descriptor (128 floating point numbers)
+      // Check if face was detected and we have a descriptor
+      if (!detections || !detections.descriptor) {
+        setStatus('ready');
+        setDetectionStatus('No face detected! Please try again with your face clearly visible.');
+        alert('No face detected! Please position your face in the circle and try again.');
+        return;
+      }
+
+      // Get the face descriptor
       const faceDescriptor = Array.from(detections.descriptor);
+      console.log('Face descriptor length:', faceDescriptor.length);
+
+      // Validate descriptor
+      if (faceDescriptor.length === 0) {
+        setStatus('ready');
+        setDetectionStatus('Face detected but no descriptor generated. Please try again.');
+        alert('Face detection failed. Please try again.');
+        return;
+      }
 
       stopCamera();
       onCapture({
@@ -117,9 +175,10 @@ export default function FaceRecognition({ onCapture, onClose }) {
         descriptor: faceDescriptor
       });
     } catch (err) {
-      console.error('Face detection error:', err);
+      console.error('Photo capture error:', err);
       setStatus('ready');
-      alert('Face detection failed. Please try again.');
+      setDetectionStatus('Error during capture. Please try again.');
+      alert('Photo capture failed. Please try again.');
     }
   };
 
@@ -160,8 +219,15 @@ export default function FaceRecognition({ onCapture, onClose }) {
         </div>
 
         <div style={styles.instructions}>
-          {status === 'detecting' ? (
-            <p style={{ color: '#2563eb' }}>Detecting face...</p>
+          {status === 'capturing' ? (
+            <p style={{ color: '#2563eb' }}>Capturing photo...</p>
+          ) : detectionStatus ? (
+            <p style={{ 
+              color: faceDetected ? '#10b981' : '#f59e0b',
+              fontWeight: faceDetected ? '600' : '400'
+            }}>
+              {faceDetected && '✓ '} {detectionStatus}
+            </p>
           ) : (
             <p>Position your face within the circle</p>
           )}

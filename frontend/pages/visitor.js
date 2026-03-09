@@ -46,13 +46,14 @@ export default function VisitorForm() {
   const handlePhotoTaken = (photoData) => {
     setPhoto(photoData);
     setShowCamera(false);
-    // Generate a placeholder face descriptor
-    // In production, this would use face-api.js to detect and get the descriptor
-    setFaceDescriptor(Array(128).fill(0).map(() => Math.random()));
+    // Note: Simple camera doesn't capture face descriptor
+    // For face verification to work, use "Capture Face (AI)" button
+    setFaceDescriptor([]);
   };
 
   // Handle face capture from FaceRecognition component
   const handleFaceCapture = async (faceData) => {
+    console.log('Face captured:', faceData);
     setPhoto(faceData.photo);
     setFaceDescriptor(faceData.descriptor || []);
     setShowFaceRecognition(false);
@@ -147,7 +148,15 @@ export default function VisitorForm() {
                       className="btn btn-outline"
                       style={styles.biometricBtn}
                     >
-                      <FiCamera style={{ marginRight: '8px' }} /> Capture Face
+                      <FiCamera style={{ marginRight: '8px' }} /> Capture Face (AI)
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => setShowCamera(true)} 
+                      className="btn btn-secondary"
+                      style={{ ...styles.biometricBtn, marginTop: '8px' }}
+                    >
+                      <FiCamera style={{ marginRight: '8px' }} /> Capture Photo
                     </button>
                   </div>
                 )}
