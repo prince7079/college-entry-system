@@ -31,7 +31,7 @@ router.get('/:id', protect, async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { name, email, phone, aadharNumber, purpose, department, personToMeet, photo, faceDescriptor } = req.body;
+    const { name, email, phone, aadharNumber, purpose, department, personToMeet, photo, faceDescriptor, thumbprint, thumbprintTemplate } = req.body;
     const uniqueId = uuidv4();
     const qrCodeData = JSON.stringify({ id: uniqueId, visitorId: null });
     const qrCodeImage = await QRCode.toDataURL(qrCodeData);
@@ -46,6 +46,8 @@ router.post('/', async (req, res) => {
       personToMeet,
       photo,
       faceDescriptor,
+      thumbprint,
+      thumbprintTemplate,
       qrCode: uniqueId,
       status: 'pending'
     });

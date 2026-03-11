@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
-import { FiPlus, FiSearch, FiCheck, FiX, FiTrash2 } from 'react-icons/fi';
+import { FiPlus, FiSearch, FiCheck, FiX, FiTrash2, FiSmile, FiFingerprint } from 'react-icons/fi';
 
 export default function Visitors() {
   const { user, loading: authLoading } = useAuth();
@@ -126,9 +126,11 @@ export default function Visitors() {
           <table className="table">
             <thead>
               <tr>
+                <th>Photo</th>
                 <th>Name</th>
                 <th>Phone</th>
                 <th>Purpose</th>
+                <th>Biometrics</th>
                 <th>Person to Meet</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -138,6 +140,29 @@ export default function Visitors() {
               {filteredVisitors.map((visitor) => (
                 <tr key={visitor._id}>
                   <td>
+                    {visitor.photo ? (
+                      <img 
+                        src={visitor.photo} 
+                        alt={visitor.name} 
+                        style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <div style={{ 
+                        width: '40px', 
+                        height: '40px', 
+                        borderRadius: '50%', 
+                        background: '#e2e8f0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '14px',
+                        color: '#64748b'
+                      }}>
+                        {visitor.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </td>
+                  <td>
                     <div>
                       <div style={{ fontWeight: '500' }}>{visitor.name}</div>
                       <div style={{ fontSize: '12px', color: '#64748b' }}>{visitor.email}</div>
@@ -145,6 +170,23 @@ export default function Visitors() {
                   </td>
                   <td>{visitor.phone}</td>
                   <td>{visitor.purpose}</td>
+                  <td>
+                    <div style={styles.biometricIcons}>
+                      {visitor.photo && (
+                        <span style={styles.biometricIcon} title="Face registered">
+                          <FiSmile size={16} color="#2563eb" />
+                        </span>
+                      )}
+                      {(visitor.thumbprint || (visitor.thumbprintTemplate && visitor.thumbprintTemplate.length > 0)) && (
+                        <span style={styles.biometricIcon} title="Thumbprint registered">
+                          <FiFingerprint size={16} color="#10b981" />
+                        </span>
+                      )}
+                      {!visitor.photo && !visitor.thumbprint && !(visitor.thumbprintTemplate && visitor.thumbprintTemplate.length > 0) && (
+                        <span style={{ fontSize: '12px', color: '#94a3b8' }}>None</span>
+                      )}
+                    </div>
+                  </td>
                   <td>{visitor.personToMeet}</td>
                   <td>
                     <span className={`status-badge status-${visitor.status}`}>
@@ -252,6 +294,19 @@ searchInput: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  biometricIcons: {
+    display: 'flex',
+    gap: '8px',
+    alignItems: 'center',
+  },
+  biometricIcon: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '4px',
+    background: '#f1f5f9',
+    borderRadius: '4px',
   },
   loading: {
     display: 'flex',

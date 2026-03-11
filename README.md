@@ -231,7 +231,7 @@ This repository includes GitHub Actions workflows for automatic deployments:
 - Backend: `.github/workflows/backend-deploy.yml` — builds a Docker image for the backend and pushes it to Docker Hub. Add these repository secrets:
   - `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`.
 
-After pushing to `main`, the workflow will run and deploy according to the configured provider. For Render or Railway, prefer connecting the repository directly in the provider UI and set environment variables there.
+After pushing to `main`, the workflow will run and deploy according to the configured provider. For Cloud VM deployments, set environment variables directly on your server.
 
 Socket authentication
 
