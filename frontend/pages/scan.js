@@ -1,21 +1,40 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
-import { Html5QrcodeScanner } from 'html5-qrcode';
-import { FiCamera, FiCheck, FiX, FiUser, FiClock } from 'react-icons/fi';
+import dynamic from 'next/dynamic';
+import { FiCamera, FiCheck, FiX, FiUser, FiClock, FiGrid, FiSmile } from 'react-icons/fi';
+import { IoFingerPrint } from 'react-icons/io5';
+
+// Dynamic imports for scanner components to avoid SSR issues
+const QRScanner = dynamic(() => import('@/components/QRScanner'), { ssr: false });
+const FaceRecognition = dynamic(() => import('@/components/FaceRecognition'), { ssr: false });
+const ThumbprintCapture = dynamic(() => import('@/components/ThumbprintCapture'), { ssr: false });
 
 export default function Scan() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  
+  // State for verification method
+  const [verificationMethod, setVerificationMethod] = useState('qr'); // 'qr', 'face', 'thumbprint'
+  
+  // State for scanning
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState(null);
   const [processing, setProcessing] = useState(false);
-  const [mode, setMode] = useState('entry'); // 'entry' or 'exit'
-  const [cameraError, setCameraError] = useState('');
+  
+  // State for mode (entry/exit)
+  const [mode, setMode] = useState('entry');
+  
+  // State for components
+  const [showFaceCapture, setShowFaceCapture] = useState(false);
+  const [showThumbprintCapture, setShowThumbprintCapture] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  
+  // Refs
   const scannerRef = useRef(null);
   const html5QrcodeScannerRef = useRef(null);
+  const videoRef = useRef(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -28,54 +47,31 @@ export default function Scan() {
       if (html5QrcodeScannerRef.current) {
         html5QrcodeScannerRef.current.clear().catch(console.error);
       }
+      stopCamera();
     };
   }, []);
 
-  const startScanning = () => {
-    setScanning(true);
-    setScanResult(null);
-    setCameraError('');
-
-    setTimeout(() => {
-      if (scannerRef.current) {
-        html5QrcodeScannerRef.current = new Html5QrcodeScanner(
-          'qr-reader',
-          {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
-            aspectRatio: 1.0,
-          },
-          false
-        );
-
-        html5QrcodeScannerRef.current.render(
-          (decodedText) => {
-            handleScan(decodedText);
-          },
-          (error) => {
-            // Ignore scan errors
-          }
-        );
-      }
-    }, 100);
-  };
-
-  const stopScanning = () => {
-    if (html5QrcodeScannerRef.current) {
-      html5QrcodeScannerRef.current.clear().catch(console.error);
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const tracks = videoRef.current.srcObject.getTracks();
+      tracks.forEach(track => track.stop());
     }
-    setScanning(false);
   };
 
-  const handleScan = async (qrData) => {
+  // ==================== QR Code Methods ====================
+  const startQRScanning = () => {
+    setShowQRScanner(true);
+    setScanResult(null);
+  };
+
+  const handleQRScan = async (qrData) => {
+    setShowQRScanner(false);
     if (processing) return;
     
-    stopScanning();
     setProcessing(true);
 
     try {
-      // Verify the QR code first
-      const verifyData = await api.post('/scan/verify', {
+      const verifyData = await api.verifyVisitor({
         qrCode: qrData
       });
 
@@ -84,6 +80,7 @@ export default function Scan() {
           type: 'success',
           visitor: verifyData.visitor,
           isInside: verifyData.isInside,
+          verificationMethod: 'qr',
           qrCode: qrData
         });
       } else {
@@ -102,23 +99,115 @@ export default function Scan() {
     }
   };
 
+  const closeQRScanner = () => {
+    setShowQRScanner(false);
+  };
+
+  // ==================== Face Verification Methods ====================
+  const startFaceVerification = () => {
+    setShowFaceCapture(true);
+    setScanResult(null);
+  };
+
+  const handleFaceCapture = async (faceData) => {
+    setShowFaceCapture(false);
+    setProcessing(true);
+
+    try {
+      // Get face descriptor from captured data
+      const faceDescriptor = faceData.descriptor;
+      
+      if (!faceDescriptor || faceDescriptor.length === 0) {
+        throw new Error('No face detected');
+      }
+
+      const verifyData = await api.verifyFace(faceDescriptor);
+
+      if (verifyData.verified) {
+        setScanResult({
+          type: 'success',
+          visitor: verifyData.visitor,
+          isInside: verifyData.isInside,
+          verificationMethod: 'face',
+          matchConfidence: verifyData.matchConfidence
+        });
+      } else {
+        setScanResult({
+          type: 'error',
+          message: verifyData.message || 'Face not recognized'
+        });
+      }
+    } catch (error) {
+      setScanResult({
+        type: 'error',
+        message: error.message || 'Face verification failed'
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // ==================== Thumbprint Verification Methods ====================
+  const startThumbprintVerification = () => {
+    setShowThumbprintCapture(true);
+    setScanResult(null);
+  };
+
+  const handleThumbprintCapture = async (thumbprintData) => {
+    setShowThumbprintCapture(false);
+    setProcessing(true);
+
+    try {
+      const verifyData = await api.verifyThumbprint(
+        thumbprintData.thumbprintTemplate,
+        thumbprintData.thumbprint
+      );
+
+      if (verifyData.verified) {
+        setScanResult({
+          type: 'success',
+          visitor: verifyData.visitor,
+          isInside: verifyData.isInside,
+          verificationMethod: 'thumbprint',
+          matchConfidence: verifyData.matchConfidence
+        });
+      } else {
+        setScanResult({
+          type: 'error',
+          message: verifyData.message || 'Thumbprint not recognized'
+        });
+      }
+    } catch (error) {
+      setScanResult({
+        type: 'error',
+        message: error.message || 'Thumbprint verification failed'
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // ==================== Entry/Exit Methods ====================
   const handleEntry = async () => {
     if (!scanResult || scanResult.type !== 'success') return;
 
     try {
       const data = await api.post('/scan/entry', {
         qrCode: scanResult.qrCode,
-        entryMethod: 'qr'
+        visitorId: scanResult.visitor?._id,
+        entryMethod: scanResult.verificationMethod
       });
       setScanResult({
         type: 'success',
         message: 'Entry recorded successfully!',
-        visitor: data.visitor
+        visitor: data.visitor,
+        verificationMethod: scanResult.verificationMethod
       });
     } catch (error) {
       setScanResult({
         type: 'error',
-        message: error.message || 'Entry failed'
+        message: error.message || 'Entry failed',
+        ...scanResult
       });
     }
   };
@@ -129,17 +218,20 @@ export default function Scan() {
     try {
       const data = await api.post('/scan/exit', {
         qrCode: scanResult.qrCode,
-        exitMethod: 'qr'
+        visitorId: scanResult.visitor?._id,
+        exitMethod: scanResult.verificationMethod
       });
       setScanResult({
         type: 'success',
         message: 'Exit recorded successfully!',
-        visitor: data.visitor
+        visitor: data.visitor,
+        verificationMethod: scanResult.verificationMethod
       });
     } catch (error) {
       setScanResult({
         type: 'error',
-        message: error.message || 'Exit failed'
+        message: error.message || 'Exit failed',
+        ...scanResult
       });
     }
   };
@@ -147,6 +239,11 @@ export default function Scan() {
   const resetScan = () => {
     setScanResult(null);
     setScanning(false);
+  };
+
+  const handleMethodChange = (method) => {
+    setVerificationMethod(method);
+    resetScan();
   };
 
   if (authLoading || !user) {
@@ -161,10 +258,42 @@ export default function Scan() {
   return (
     <div>
       <div style={styles.header}>
-        <h1 style={styles.title}>QR Scanner</h1>
-        <p style={styles.subtitle}>Scan visitor QR code for entry/exit</p>
+        <h1 style={styles.title}>Visitor Verification</h1>
+        <p style={styles.subtitle}>Verify visitor using QR Code, Face, or Thumbprint</p>
       </div>
 
+      {/* Verification Method Selection */}
+      <div style={styles.methodToggle}>
+        <button
+          style={{ 
+            ...styles.methodBtn, 
+            ...(verificationMethod === 'qr' ? styles.methodBtnActive : {}) 
+          }}
+          onClick={() => handleMethodChange('qr')}
+        >
+          <FiGrid style={{ marginRight: '8px' }} /> QR Code
+        </button>
+        <button
+          style={{ 
+            ...styles.methodBtn, 
+            ...(verificationMethod === 'face' ? styles.methodBtnActive : {}) 
+          }}
+          onClick={() => handleMethodChange('face')}
+        >
+          <FiSmile style={{ marginRight: '8px' }} /> Face
+        </button>
+        <button
+          style={{ 
+            ...styles.methodBtn, 
+            ...(verificationMethod === 'thumbprint' ? styles.methodBtnActive : {}) 
+          }}
+          onClick={() => handleMethodChange('thumbprint')}
+        >
+          <IoFingerPrint style={{ marginRight: '8px' }} /> Thumbprint
+        </button>
+      </div>
+
+      {/* Entry/Exit Mode Toggle */}
       <div style={styles.modeToggle}>
         <button
           style={{ ...styles.modeBtn, ...(mode === 'entry' ? styles.modeBtnActive : {}) }}
@@ -181,43 +310,92 @@ export default function Scan() {
       </div>
 
       <div style={styles.container}>
-        {!scanning && !scanResult && (
+        {/* QR Code Mode */}
+        {verificationMethod === 'qr' && !scanResult && (
           <div style={styles.startSection}>
             <div style={styles.iconBox}>
               <FiCamera size={60} color="#2563eb" />
             </div>
-            <h2 style={styles.sectionTitle}>Ready to Scan</h2>
+            <h2 style={styles.sectionTitle}>Scan QR Code</h2>
             <p style={styles.sectionText}>
               Click the button below to start scanning visitor QR codes
             </p>
-            <button onClick={startScanning} className="btn btn-primary" style={styles.startBtn}>
+            <button onClick={startQRScanning} className="btn btn-primary" style={styles.startBtn}>
               <FiCamera style={{ marginRight: '8px' }} /> Start Scanning
             </button>
           </div>
         )}
 
-        {scanning && (
-          <div style={styles.scannerSection}>
-            <div id="qr-reader" style={styles.qrReader}></div>
-            <button onClick={stopScanning} className="btn btn-secondary" style={styles.stopBtn}>
-              Cancel
+        {/* Face Verification Mode */}
+        {verificationMethod === 'face' && !scanResult && (
+          <div style={styles.startSection}>
+            <div style={styles.iconBox}>
+              <FiSmile size={60} color="#2563eb" />
+            </div>
+            <h2 style={styles.sectionTitle}>Face Verification</h2>
+            <p style={styles.sectionText}>
+              Use facial recognition to verify visitor identity
+            </p>
+            <button onClick={startFaceVerification} className="btn btn-primary" style={styles.startBtn}>
+              <FiSmile style={{ marginRight: '8px' }} /> Start Face Scan
             </button>
           </div>
         )}
 
-        {processing && (
-          <div style={styles.processingSection}>
-            <div className="loading-spinner" style={{ width: '40px', height: '40px' }}></div>
-            <p>Processing...</p>
+        {/* Thumbprint Verification Mode */}
+        {verificationMethod === 'thumbprint' && !scanResult && (
+          <div style={styles.startSection}>
+            <div style={styles.iconBox}>
+              <IoFingerPrint size={60} color="#2563eb" />
+            </div>
+            <h2 style={styles.sectionTitle}>Thumbprint Verification</h2>
+            <p style={styles.sectionText}>
+              Use fingerprint scanning to verify visitor identity
+            </p>
+            <button onClick={startThumbprintVerification} className="btn btn-primary" style={styles.startBtn}>
+              <IoFingerPrint style={{ marginRight: '8px' }} /> Start Thumbprint Scan
+            </button>
           </div>
         )}
 
+        {/* Processing State */}
+        {processing && (
+          <div style={styles.processingSection}>
+            <div className="loading-spinner" style={{ width: '40px', height: '40px' }}></div>
+            <p style={{ marginTop: '16px' }}>
+              {verificationMethod === 'qr' ? 'Verifying QR code...' : 
+               verificationMethod === 'face' ? 'Verifying face...' : 'Verifying thumbprint...'}
+            </p>
+          </div>
+        )}
+
+        {/* Success Result */}
         {scanResult && scanResult.type === 'success' && !scanResult.message && (
           <div style={styles.resultSection}>
             <div style={styles.successIcon}>
               <FiCheck size={40} color="white" />
             </div>
+            
+            {scanResult.visitor?.photo && (
+              <img 
+                src={scanResult.visitor.photo} 
+                alt={scanResult.visitor.name}
+                style={styles.visitorPhoto}
+              />
+            )}
+            
             <h3 style={styles.visitorName}>{scanResult.visitor?.name}</h3>
+            
+            <div style={styles.verificationBadge}>
+              <span style={styles.badgeText}>
+                Verified via: {scanResult.verificationMethod?.toUpperCase()}
+              </span>
+              {scanResult.matchConfidence && (
+                <span style={styles.confidenceText}>
+                  Confidence: {Math.round(scanResult.matchConfidence * 100)}%
+                </span>
+              )}
+            </div>
             
             <div style={styles.visitorDetails}>
               <div style={styles.detailItem}>
@@ -251,24 +429,26 @@ export default function Scan() {
                 </p>
               )}
               <button onClick={resetScan} className="btn btn-outline" style={styles.actionBtn}>
-                Scan Another
+                Verify Another
               </button>
             </div>
           </div>
         )}
 
-        {scanResult && scanResult.message && (
+        {/* Success with Message */}
+        {scanResult && scanResult.message && scanResult.type === 'success' && (
           <div style={styles.resultSection}>
-            <div style={styles.errorIcon}>
-              <FiX size={40} color="white" />
+            <div style={styles.successIcon}>
+              <FiCheck size={40} color="white" />
             </div>
             <h3>{scanResult.message}</h3>
             <button onClick={resetScan} className="btn btn-primary" style={styles.actionBtn}>
-              Try Again
+              Verify Another
             </button>
           </div>
         )}
 
+        {/* Error Result */}
         {scanResult && scanResult.type === 'error' && (
           <div style={styles.resultSection}>
             <div style={styles.errorIcon}>
@@ -281,6 +461,30 @@ export default function Scan() {
           </div>
         )}
       </div>
+
+      {/* Face Capture Modal */}
+      {showFaceCapture && (
+        <FaceRecognition 
+          onCapture={handleFaceCapture} 
+          onClose={() => setShowFaceCapture(false)} 
+        />
+      )}
+
+      {/* Thumbprint Capture Modal */}
+      {showThumbprintCapture && (
+        <ThumbprintCapture 
+          onCapture={handleThumbprintCapture} 
+          onClose={() => setShowThumbprintCapture(false)} 
+        />
+      )}
+
+      {/* QR Scanner Modal */}
+      {showQRScanner && (
+        <QRScanner 
+          onScan={handleQRScan} 
+          onClose={closeQRScanner} 
+        />
+      )}
     </div>
   );
 }
@@ -298,6 +502,30 @@ const styles = {
   subtitle: {
     fontSize: '14px',
     color: '#64748b',
+  },
+  methodToggle: {
+    display: 'flex',
+    gap: '8px',
+    marginBottom: '16px',
+  },
+  methodBtn: {
+    flex: 1,
+    padding: '12px',
+    border: '2px solid #e2e8f0',
+    borderRadius: '12px',
+    background: 'white',
+    fontSize: '14px',
+    fontWeight: '500',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.2s',
+  },
+  methodBtnActive: {
+    borderColor: '#2563eb',
+    background: '#eff6ff',
+    color: '#2563eb',
   },
   modeToggle: {
     display: 'flex',
@@ -406,11 +634,38 @@ const styles = {
     justifyContent: 'center',
     margin: '0 auto 20px',
   },
+  visitorPhoto: {
+    width: '80px',
+    height: '80px',
+    borderRadius: '50%',
+    objectFit: 'cover',
+    marginBottom: '16px',
+    border: '3px solid #2563eb',
+  },
   visitorName: {
     fontSize: '24px',
     fontWeight: '700',
     color: '#1e293b',
+    marginBottom: '12px',
+  },
+  verificationBadge: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
     marginBottom: '16px',
+  },
+  badgeText: {
+    fontSize: '12px',
+    color: '#2563eb',
+    fontWeight: '500',
+    background: '#eff6ff',
+    padding: '4px 12px',
+    borderRadius: '12px',
+    display: 'inline-block',
+  },
+  confidenceText: {
+    fontSize: '12px',
+    color: '#10b981',
   },
   visitorDetails: {
     display: 'flex',

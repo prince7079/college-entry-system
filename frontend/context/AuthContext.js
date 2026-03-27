@@ -1,6 +1,6 @@
 
 import { createContext, useContext, useState, useEffect } from 'react';
-import { io as ioClient } from 'socket.io-client';
+import io from 'socket.io-client';
 import api, { logout as apiLogout } from '@/services/api';
 
 const AuthContext = createContext();
@@ -26,7 +26,7 @@ export const AuthProvider = ({ children }) => {
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
     const baseUrl = apiUrl.replace(/\/api\/?$/, '');
-    const client = ioClient(baseUrl, {
+    const client = io(baseUrl, {
       auth: { token },
       reconnection: true,
       withCredentials: true,

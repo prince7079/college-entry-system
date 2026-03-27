@@ -31,10 +31,15 @@ router.get('/:id', protect, async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { name, email, phone, aadharNumber, purpose, department, personToMeet, photo, faceDescriptor } = req.body;
+    console.log('Received visitor data:', req.body);
+    const { name, email, phone, aadharNumber, purpose, department, personToMeet, photo, faceDescriptor, thumbprint, thumbprintTemplate } = req.body;
+    console.log('Destructured data:', { name, email, phone, purpose, personToMeet });
     const uniqueId = uuidv4();
+    console.log('Generated uniqueId:', uniqueId);
     const qrCodeData = JSON.stringify({ id: uniqueId, visitorId: null });
+    console.log('QR code data:', qrCodeData);
     const qrCodeImage = await QRCode.toDataURL(qrCodeData);
+    console.log('QR code generated');
 
     const visitor = await Visitor.create({
       name,
@@ -46,22 +51,27 @@ router.post('/', async (req, res) => {
       personToMeet,
       photo,
       faceDescriptor,
+      thumbprint,
+      thumbprintTemplate,
       qrCode: uniqueId,
       status: 'pending'
     });
+    console.log('Visitor created:', visitor._id);
 
     const updatedQrCodeData = JSON.stringify({ id: uniqueId, visitorId: visitor._id });
     const updatedQrCodeImage = await QRCode.toDataURL(updatedQrCodeData);
+    console.log('Updated QR code generated');
 
     visitor.qrCode = uniqueId;
     await visitor.save();
+    console.log('Visitor saved');
 
     res.status(201).json({
       ...visitor.toObject(),
       qrCodeImage: updatedQrCodeImage
     });
   } catch (error) {
-    console.error(error);
+    console.error('Error in visitor creation:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

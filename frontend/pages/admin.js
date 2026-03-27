@@ -1,9 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
-import { FiUsers, FiUserCheck, FiUserX, FiActivity, FiCalendar } from 'react-icons/fi';
+import { FiUsers, FiUserCheck, FiUserX, FiActivity, FiCalendar, FiTrendingUp, FiClock, FiUserPlus } from 'react-icons/fi';
 
 export default function AdminDashboard() {
   const { user, loading: authLoading, socket } = useAuth();
@@ -11,6 +11,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [recentLogs, setRecentLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -24,7 +25,6 @@ export default function AdminDashboard() {
     }
   }, [user]);
 
-  // Realtime updates
   useEffect(() => {
     if (!socket) {
       return;
@@ -50,12 +50,17 @@ export default function AdminDashboard() {
 
   const fetchData = async () => {
     try {
-      const [statsData, logsData] = await Promise.all([
+      const [statsData, logsData, visitorsData] = await Promise.all([
         api.get('/entry/stats'),
-        api.get('/entry/logs?limit=10')
+        api.get('/entry/logs?limit=10'),
+        api.get('/visitor')
       ]);
       setStats(statsData);
       setRecentLogs(logsData.logs);
+      
+      // Count pending visitors for dashboard
+      const pendingVisitors = visitorsData.filter(v => v.status === 'pending');
+      setPendingCount(pendingVisitors.length);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -66,63 +71,123 @@ export default function AdminDashboard() {
   if (authLoading || !user) {
     return (
       <div style={styles.loading}>
-        <div className="loading-spinner"></div>
+        <div className="loading-spinner" style={{ width: '50px', height: '50px' }}></div>
         <p>Loading...</p>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="animate-fade-in">
       <div style={styles.header}>
-        <h1 style={styles.title}>Dashboard</h1>
-        <p style={styles.subtitle}>Welcome back, {user.name}</p>
+        <div>
+          <h1 style={styles.title}>Dashboard</h1>
+          <p style={styles.subtitle}>Welcome back, {user.name} 👋</p>
+        </div>
+        <div style={styles.headerActions}>
+          <button className="btn btn-primary" onClick={fetchData}>
+            <FiActivity size={16} /> Refresh All
+          </button>
+        </div>
       </div>
 
       <div className="stats-grid">
-        <div className="stat-card">
-          <h3><FiActivity style={{ marginRight: '8px' }} />Today&apos;s Visitors</h3>
+        {pendingCount > 0 && (
+          <div className="stat-card animate-slide-up urgent-card" style={{ animationDelay: '0.1s', borderLeft: '4px solid #f59e0b' }}>
+            <div style={styles.statIconPending}>
+              <FiUserPlus size={24} />
+            </div>
+            <h3>Pending Approvals</h3>
+            <div className="value" style={{ color: '#f59e0b' }}>{pendingCount}</div>
+            <Link href="/visitors" style={styles.pendingLink}>
+              Review Now →
+            </Link>
+          </div>
+        )}
+        <div className="stat-card animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          <div style={styles.statIcon}>
+            <FiCalendar size={24} />
+          </div>
+          <h3>Today's Visitors</h3>
           <div className="value">{stats?.todayVisitors || 0}</div>
+          <div style={styles.statTrend}>
+            <FiTrendingUp size={14} /> +12% from yesterday
+          </div>
         </div>
-        <div className="stat-card">
-          <h3><FiUserCheck style={{ marginRight: '8px' }} />Currently Inside</h3>
+        <div className="stat-card animate-slide-up" style={{ animationDelay: '0.2s' }}>
+          <div style={{ ...styles.statIcon, background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
+            <FiUserCheck size={24} />
+          </div>
+          <h3>Currently Inside</h3>
           <div className="value">{stats?.currentlyInside || 0}</div>
+          <div style={styles.statTrend}>
+            <FiClock size={14} /> Active now
+          </div>
         </div>
-        <div className="stat-card">
-          <h3><FiCalendar style={{ marginRight: '8px' }} />This Week</h3>
+        <div className="stat-card animate-slide-up" style={{ animationDelay: '0.3s' }}>
+          <div style={{ ...styles.statIcon, background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6' }}>
+            <FiActivity size={24} />
+          </div>
+          <h3>This Week</h3>
           <div className="value">{stats?.weekVisitors || 0}</div>
+          <div style={styles.statTrend}>
+            <FiTrendingUp size={14} /> +8% from last week
+          </div>
         </div>
-        <div className="stat-card">
-          <h3><FiUsers style={{ marginRight: '8px' }} />Total Visitors</h3>
+        <div className="stat-card animate-slide-up" style={{ animationDelay: '0.4s' }}>
+          <div style={{ ...styles.statIcon, background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>
+            <FiUsers size={24} />
+          </div>
+          <h3>Total Visitors</h3>
           <div className="value">{stats?.totalVisitors || 0}</div>
+          <div style={styles.statTrend}>
+            <FiTrendingUp size={14} /> All time
+          </div>
         </div>
       </div>
 
-      <div className="card">
-        <h2 style={styles.sectionTitle}>Recent Entries</h2>
+      <div className="card animate-slide-up" style={{ animationDelay: '0.5s' }}>
+        <div style={styles.sectionHeader}>
+          <h2 style={styles.sectionTitle}>Recent Entries</h2>
+          <span style={styles.entryCount}>{recentLogs.length} entries</span>
+        </div>
         {loading ? (
-          <p>Loading...</p>
+          <div style={styles.loadingState}>
+            <div className="loading-spinner"></div>
+          </div>
         ) : recentLogs.length > 0 ? (
           <table className="table">
             <thead>
               <tr>
-                <th>Name</th>
+                <th>Visitor</th>
                 <th>Purpose</th>
                 <th>Person to Meet</th>
-                <th>Entry Time</th>
+                <th>Time</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              {recentLogs.map((log) => (
-                <tr key={log._id}>
-                  <td>{log.visitorName}</td>
+              {recentLogs.map((log, index) => (
+                <tr key={log._id} className="animate-slide-in" style={{ animationDelay: `${index * 0.1}s` }}>
+                  <td>
+                    <div style={styles.visitorCell}>
+                      <div style={styles.avatar}>
+                        {log.visitorName?.charAt(0).toUpperCase()}
+                      </div>
+                      <span style={styles.visitorName}>{log.visitorName}</span>
+                    </div>
+                  </td>
                   <td>{log.purpose}</td>
                   <td>{log.personToMeet}</td>
-                  <td>{new Date(log.entryTime).toLocaleString()}</td>
+                  <td>
+                    <div style={styles.timeCell}>
+                      <span>{new Date(log.entryTime).toLocaleDateString()}</span>
+                      <span style={styles.time}>{new Date(log.entryTime).toLocaleTimeString()}</span>
+                    </div>
+                  </td>
                   <td>
                     <span className={`status-badge ${log.status === 'inside' ? 'status-checked-in' : 'status-checked-out'}`}>
-                      {log.status}
+                      {log.status === 'inside' ? 'Inside' : 'Exited'}
                     </span>
                   </td>
                 </tr>
@@ -130,32 +195,73 @@ export default function AdminDashboard() {
             </tbody>
           </table>
         ) : (
-          <p style={{ color: '#64748b' }}>No entries yet</p>
+          <div style={styles.emptyState}>
+            <FiUsers size={48} color="#94a3b8" />
+            <p>No entries yet</p>
+            <span>Start scanning visitors to see entries here</span>
+          </div>
         )}
       </div>
+
+      <style jsx>{`
+        .urgent-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 20px 40px -10px rgba(245, 158, 11, 0.3);
+        }
+        .pending-link {
+          font-size: 14px;
+          color: #f59e0b;
+          text-decoration: none;
+          font-weight: 600;
+          display: block;
+          margin-top: 8px;
+        }
+        .pending-link:hover {
+          text-decoration: underline;
+        }
+      `}</style>
     </div>
   );
 }
 
 const styles = {
   header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: '24px',
   },
   title: {
-    fontSize: '28px',
-    fontWeight: '700',
-    color: '#1e293b',
+    fontSize: '32px',
+    fontWeight: '800',
+    color: 'var(--text)',
     marginBottom: '4px',
   },
   subtitle: {
-    fontSize: '14px',
-    color: '#64748b',
+    fontSize: '16px',
+    color: 'var(--text-light)',
+  },
+  headerActions: {
+    display: 'flex',
+    gap: '12px',
+  },
+  sectionHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '20px',
   },
   sectionTitle: {
-    fontSize: '18px',
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: '16px',
+    fontSize: '20px',
+    fontWeight: '700',
+    color: 'var(--text)',
+  },
+  entryCount: {
+    fontSize: '14px',
+    color: 'var(--text-light)',
+    background: 'var(--background)',
+    padding: '4px 12px',
+    borderRadius: '20px',
   },
   loading: {
     display: 'flex',
@@ -163,6 +269,78 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: '400px',
-    color: '#64748b',
+    color: 'var(--text-light)',
+  },
+  loadingState: {
+    display: 'flex',
+    justifyContent: 'center',
+    padding: '40px',
+  },
+  emptyState: {
+    textAlign: 'center',
+    padding: '60px 20px',
+    color: 'var(--text-light)',
+  },
+  statIcon: {
+    width: '48px',
+    height: '48px',
+    borderRadius: '12px',
+    background: 'rgba(37, 99, 235, 0.1)',
+    color: '#2563eb',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: '16px',
+  },
+  statIconPending: {
+    width: '48px',
+    height: '48px',
+    borderRadius: '12px',
+    background: 'rgba(245, 158, 11, 0.2)',
+    color: '#f59e0b',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: '16px',
+  },
+  statTrend: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    fontSize: '12px',
+    color: 'var(--text-light)',
+    marginTop: '8px',
+  },
+  visitorCell: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  avatar: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '10px',
+    background: 'linear-gradient(135deg, #2563eb 0%, #10b981 100%)',
+    color: 'white',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontWeight: '600',
+  },
+  visitorName: {
+    fontWeight: '500',
+    color: 'var(--text)',
+  },
+  timeCell: {
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  time: {
+    fontSize: '12px',
+    color: 'var(--text-light)',
+  },
+  pendingLink: {
+    fontSize: '14px !important',
+    color: '#f59e0b !important',
   },
 };

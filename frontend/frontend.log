@@ -1,0 +1,54 @@
+
+> college-entry-frontend@1.0.0 dev
+> next dev
+
+   ▲ Next.js 14.0.4
+   - Local:        http://localhost:3000
+   - Environments: .env.local
+
+ ✓ Ready in 1220ms
+ ○ Compiling / ...
+ ✓ Compiled / in 1167ms (325 modules)
+ ✓ Compiled /admin in 144ms (331 modules)
+ ✓ Compiled /visitors in 350ms (341 modules)
+ ○ Compiling /scan ...
+ ⚠ ./node_modules/face-api.js/build/es6/env/createFileSystem.js
+Module not found: Can't resolve 'fs' in '/Users/princekumar/Hybrid Entry System/frontend/node_modules/face-api.js/build/es6/env'
+
+Import trace for requested module:
+./node_modules/face-api.js/build/es6/env/createFileSystem.js
+./node_modules/face-api.js/build/es6/env/index.js
+./node_modules/face-api.js/build/es6/index.js
+./components/FaceRecognition.js
+ ⚠ ./node_modules/face-api.js/build/es6/env/createFileSystem.js
+Module not found: Can't resolve 'fs' in '/Users/princekumar/Hybrid Entry System/frontend/node_modules/face-api.js/build/es6/env'
+
+Import trace for requested module:
+./node_modules/face-api.js/build/es6/env/createFileSystem.js
+./node_modules/face-api.js/build/es6/env/index.js
+./node_modules/face-api.js/build/es6/index.js
+./components/FaceRecognition.js
+ ⚠ ./node_modules/face-api.js/build/es6/env/createFileSystem.js
+Module not found: Can't resolve 'fs' in '/Users/princekumar/Hybrid Entry System/frontend/node_modules/face-api.js/build/es6/env'
+
+Import trace for requested module:
+./node_modules/face-api.js/build/es6/env/createFileSystem.js
+./node_modules/face-api.js/build/es6/env/index.js
+./node_modules/face-api.js/build/es6/index.js
+./components/FaceRecognition.js
+ ⚠ ./node_modules/face-api.js/build/es6/env/createFileSystem.js
+Module not found: Can't resolve 'fs' in '/Users/princekumar/Hybrid Entry System/frontend/node_modules/face-api.js/build/es6/env'
+
+Import trace for requested module:
+./node_modules/face-api.js/build/es6/env/createFileSystem.js
+./node_modules/face-api.js/build/es6/env/index.js
+./node_modules/face-api.js/build/es6/index.js
+./components/FaceRecognition.js
+ ⚠ ./node_modules/face-api.js/build/es6/env/createFileSystem.js
+Module not found: Can't resolve 'fs' in '/Users/princekumar/Hybrid Entry System/frontend/node_modules/face-api.js/build/es6/env'
+
+Import trace for requested module:
+./node_modules/face-api.js/build/es6/env/createFileSystem.js
+./node_modules/face-api.js/build/es6/env/index.js
+./node_modules/face-api.js/build/es6/index.js
+./components/FaceRecognition.js
