@@ -162,7 +162,10 @@ router.post('/verify/face', protect, async (req, res) => {
   try {
     const { faceDescriptor } = req.body;
     
+    console.log('[FACE VERIFY] Received face descriptor:', faceDescriptor ? `length=${faceDescriptor.length}` : 'null/undefined');
+    
     if (!faceDescriptor || faceDescriptor.length === 0) {
+      console.log('[FACE VERIFY] No face descriptor provided');
       return res.status(400).json({ verified: false, message: 'No face descriptor provided' });
     }
 
@@ -171,7 +174,10 @@ router.post('/verify/face', protect, async (req, res) => {
       faceDescriptor: { $exists: true, $ne: [] }
     });
 
+    console.log(`[FACE VERIFY] Found ${visitors.length} visitors with face descriptors`);
+
     if (visitors.length === 0) {
+      console.log('[FACE VERIFY] No registered visitors with face data');
       return res.status(404).json({ verified: false, message: 'No registered visitors with face data' });
     }
 
@@ -180,16 +186,32 @@ router.post('/verify/face', protect, async (req, res) => {
     let bestDistance = Infinity;
 
     for (const visitor of visitors) {
-      const distance = euclideanDistance(faceDescriptor, visitor.faceDescriptor);
+      const storedDescriptor = visitor.faceDescriptor;
+      const inputDescriptor = faceDescriptor;
+      
+      console.log(`[FACE VERIFY] Comparing with visitor ${visitor.name}:`);
+      console.log(`  - Stored descriptor length: ${storedDescriptor?.length || 0}`);
+      console.log(`  - Input descriptor length: ${inputDescriptor.length}`);
+      
+      // Handle case where stored descriptor might be stored as array of arrays
+      const descriptorToCompare = Array.isArray(storedDescriptor[0]) ? storedDescriptor[0] : storedDescriptor;
+      
+      const distance = euclideanDistance(inputDescriptor, descriptorToCompare);
+      console.log(`  - Distance: ${distance.toFixed(4)} (threshold: ${FACE_THRESHOLD})`);
+      
       if (distance < bestDistance && distance <= FACE_THRESHOLD) {
         bestDistance = distance;
         bestMatch = visitor;
+        console.log(`  - NEW BEST MATCH! Distance: ${distance.toFixed(4)}`);
       }
     }
 
     if (!bestMatch) {
+      console.log(`[FACE VERIFY] No match found. Best distance: ${bestDistance.toFixed(4)}`);
       return res.status(404).json({ verified: false, message: 'Face not recognized' });
     }
+
+    console.log(`[FACE VERIFY] MATCH FOUND: ${bestMatch.name} with confidence ${(1 - (bestDistance / FACE_THRESHOLD)).toFixed(2)}`);
 
     const existingEntry = await EntryLog.findOne({
       visitorId: bestMatch._id,

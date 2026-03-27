@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
-import { FiPlus, FiSearch, FiCheck, FiX, FiTrash2, FiSmile, FiFingerprint } from 'react-icons/fi';
+import { FiPlus, FiSearch, FiCheck, FiX, FiTrash2, FiSmile } from 'react-icons/fi';
+import { IoFingerPrint } from 'react-icons/io5';
 
 export default function Visitors() {
   const { user, loading: authLoading } = useAuth();
@@ -179,7 +180,7 @@ export default function Visitors() {
                       )}
                       {(visitor.thumbprint || (visitor.thumbprintTemplate && visitor.thumbprintTemplate.length > 0)) && (
                         <span style={styles.biometricIcon} title="Thumbprint registered">
-                          <FiFingerprint size={16} color="#10b981" />
+              <IoFingerPrint size={16} color="#10b981" />
                         </span>
                       )}
                       {!visitor.photo && !visitor.thumbprint && !(visitor.thumbprintTemplate && visitor.thumbprintTemplate.length > 0) && (

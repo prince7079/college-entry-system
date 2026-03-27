@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
 import dynamic from 'next/dynamic';
 import { FiCamera, FiCheck, FiX, FiUser, FiClock, FiGrid, FiSmile } from 'react-icons/fi';
-import { IoFingerprint } from 'react-icons/io5';
+import { IoFingerPrint } from 'react-icons/io5';
 
 // Dynamic imports for scanner components to avoid SSR issues
 const QRScanner = dynamic(() => import('@/components/QRScanner'), { ssr: false });
@@ -289,7 +289,7 @@ export default function Scan() {
           }}
           onClick={() => handleMethodChange('thumbprint')}
         >
-          <IoFingerprint style={{ marginRight: '8px' }} /> Thumbprint
+          <IoFingerPrint style={{ marginRight: '8px' }} /> Thumbprint
         </button>
       </div>
 
@@ -346,14 +346,14 @@ export default function Scan() {
         {verificationMethod === 'thumbprint' && !scanResult && (
           <div style={styles.startSection}>
             <div style={styles.iconBox}>
-              <IoFingerprint size={60} color="#2563eb" />
+              <IoFingerPrint size={60} color="#2563eb" />
             </div>
             <h2 style={styles.sectionTitle}>Thumbprint Verification</h2>
             <p style={styles.sectionText}>
               Use fingerprint scanning to verify visitor identity
             </p>
             <button onClick={startThumbprintVerification} className="btn btn-primary" style={styles.startBtn}>
-              <IoFingerprint style={{ marginRight: '8px' }} /> Start Thumbprint Scan
+              <IoFingerPrint style={{ marginRight: '8px' }} /> Start Thumbprint Scan
             </button>
           </div>
         )}

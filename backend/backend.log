@@ -1,0 +1,23 @@
+Server running on port 5001
+MongoDB Connected: localhost
+[0mGET / [32m200[0m 2.747 ms - 177[0m
+[0mGET / [32m200[0m 0.370 ms - 177[0m
+[0mOPTIONS /api/health [32m204[0m 0.421 ms - 0[0m
+[0mOPTIONS /api/auth/verify [32m204[0m 0.098 ms - 0[0m
+[0mGET /api/health [32m200[0m 0.874 ms - 41[0m
+[0mGET /api/auth/verify [36m304[0m 25.810 ms - -[0m
+[0mOPTIONS /api/entry/stats [32m204[0m 0.071 ms - 0[0m
+[0mOPTIONS /api/entry/logs?limit=10 [32m204[0m 0.153 ms - 0[0m
+[0mGET /api/entry/logs?limit=10 [36m304[0m 44.697 ms - -[0m
+[0mGET /api/entry/stats [36m304[0m 59.964 ms - -[0m
+[0mOPTIONS /api/visitor [32m204[0m 0.106 ms - 0[0m
+[0mGET /api/visitor [36m304[0m 8.602 ms - -[0m
+[0mOPTIONS /api/visitor [32m204[0m 0.242 ms - 0[0m
+[0mGET /api/visitor [36m304[0m 11.717 ms - -[0m
+[0mOPTIONS /api/visitor [32m204[0m 0.223 ms - 0[0m
+[0mGET /api/visitor [36m304[0m 10.999 ms - -[0m
+[0mOPTIONS /api/scan/verify/thumbprint [32m204[0m 0.306 ms - 0[0m
+[0mPOST /api/scan/verify/thumbprint [33m404[0m 30.413 ms - 74[0m
+[0mOPTIONS /api/visitor [32m204[0m 3.497 ms - 0[0m
+[0mGET /api/visitor [36m304[0m 27.521 ms - -[0m
+[0mGET /api/visitor [36m304[0m 9.361 ms - -[0m

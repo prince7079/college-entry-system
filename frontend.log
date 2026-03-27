@@ -1,0 +1,17 @@
+
+> college-entry-frontend@1.0.0 dev
+> next dev
+
+   ▲ Next.js 14.0.4
+   - Local:        http://localhost:3000
+   - Environments: .env.local
+
+ ✓ Ready in 1251ms
+ ○ Compiling / ...
+ ✓ Compiled / in 1154ms (327 modules)
+ ✓ Compiled /admin in 129ms (333 modules)
+ ○ Compiling /scan ...
+ ✓ Compiled /scan in 1268ms (571 modules)
+ ✓ Compiled /_error in 114ms (573 modules)
+ ✓ Compiled /visitors in 113ms (579 modules)
+ ✓ Compiled /visitor in 128ms (585 modules)

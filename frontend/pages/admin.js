@@ -1,9 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/services/api';
-import { FiUsers, FiUserCheck, FiUserX, FiActivity, FiCalendar, FiTrendingUp, FiClock } from 'react-icons/fi';
+import { FiUsers, FiUserCheck, FiUserX, FiActivity, FiCalendar, FiTrendingUp, FiClock, FiUserPlus } from 'react-icons/fi';
 
 export default function AdminDashboard() {
   const { user, loading: authLoading, socket } = useAuth();
@@ -11,6 +11,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [recentLogs, setRecentLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -49,12 +50,17 @@ export default function AdminDashboard() {
 
   const fetchData = async () => {
     try {
-      const [statsData, logsData] = await Promise.all([
+      const [statsData, logsData, visitorsData] = await Promise.all([
         api.get('/entry/stats'),
-        api.get('/entry/logs?limit=10')
+        api.get('/entry/logs?limit=10'),
+        api.get('/visitor')
       ]);
       setStats(statsData);
       setRecentLogs(logsData.logs);
+      
+      // Count pending visitors for dashboard
+      const pendingVisitors = visitorsData.filter(v => v.status === 'pending');
+      setPendingCount(pendingVisitors.length);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -79,18 +85,30 @@ export default function AdminDashboard() {
           <p style={styles.subtitle}>Welcome back, {user.name} 👋</p>
         </div>
         <div style={styles.headerActions}>
-          <button className="btn btn-outline" onClick={fetchData}>
-            <FiActivity size={16} /> Refresh
+          <button className="btn btn-primary" onClick={fetchData}>
+            <FiActivity size={16} /> Refresh All
           </button>
         </div>
       </div>
 
       <div className="stats-grid">
+        {pendingCount > 0 && (
+          <div className="stat-card animate-slide-up urgent-card" style={{ animationDelay: '0.1s', borderLeft: '4px solid #f59e0b' }}>
+            <div style={styles.statIconPending}>
+              <FiUserPlus size={24} />
+            </div>
+            <h3>Pending Approvals</h3>
+            <div className="value" style={{ color: '#f59e0b' }}>{pendingCount}</div>
+            <Link href="/visitors" style={styles.pendingLink}>
+              Review Now →
+            </Link>
+          </div>
+        )}
         <div className="stat-card animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <div style={styles.statIcon}>
             <FiCalendar size={24} />
           </div>
-          <h3>Today&apos;s Visitors</h3>
+          <h3>Today's Visitors</h3>
           <div className="value">{stats?.todayVisitors || 0}</div>
           <div style={styles.statTrend}>
             <FiTrendingUp size={14} /> +12% from yesterday
@@ -184,6 +202,24 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
+
+      <style jsx>{`
+        .urgent-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 20px 40px -10px rgba(245, 158, 11, 0.3);
+        }
+        .pending-link {
+          font-size: 14px;
+          color: #f59e0b;
+          text-decoration: none;
+          font-weight: 600;
+          display: block;
+          margin-top: 8px;
+        }
+        .pending-link:hover {
+          text-decoration: underline;
+        }
+      `}</style>
     </div>
   );
 }
@@ -256,6 +292,17 @@ const styles = {
     justifyContent: 'center',
     marginBottom: '16px',
   },
+  statIconPending: {
+    width: '48px',
+    height: '48px',
+    borderRadius: '12px',
+    background: 'rgba(245, 158, 11, 0.2)',
+    color: '#f59e0b',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: '16px',
+  },
   statTrend: {
     display: 'flex',
     alignItems: 'center',
@@ -291,5 +338,9 @@ const styles = {
   time: {
     fontSize: '12px',
     color: 'var(--text-light)',
+  },
+  pendingLink: {
+    fontSize: '14px !important',
+    color: '#f59e0b !important',
   },
 };
